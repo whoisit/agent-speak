@@ -1,0 +1,36 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python caching
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Downloaded by .agents/skills/speak/scripts/download_models.py
+kokoro_models/
+piper/
+piper_models/
+*.part
+
+# Audio files
+*.wav
+*.mp3
+
+# IDE / System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Speak skill runtime files
+.agents/skills/speak/state.json
+.agents/skills/speak/speak.pid
+.agents/skills/speak/server.log

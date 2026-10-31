@@ -1,0 +1,7 @@
+kokoro-onnx>=0.4
+numpy>=1.24.0
+soundfile>=0.12.1
+sounddevice>=0.4
+pystray>=0.19
+pillow>=10.0
+edge-tts>=7.0
