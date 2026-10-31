@@ -32,6 +32,8 @@ Speak virtual environment:
 - `engine <kokoro|google|edge|piper>`: preferred engine
 - `speed <rate>`: speaking rate, `0.5`–`2.0` or a percentage like `120%`
 - `glow on` / `glow off`: glowing outline around the window that is speaking
+- `glow size <px>`: how far the glow reaches outside the window (default 27)
+- `glow corner <px|auto>`: corner radius of the window the glow follows (`auto`: rounded on Windows 11, square on Windows 10)
 - `idle <minutes>`: unload the voice model after this long without speech (`0` = never)
 - `model small` / `model full`: Kokoro model size (small: ~190 MB RAM; full: ~400 MB RAM)
 - `test`: play a short sample

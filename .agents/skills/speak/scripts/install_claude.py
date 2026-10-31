@@ -20,7 +20,7 @@ def quoted(path):
 
 COMMAND = f"""---
 description: Spoken replies on/off (Google Chirp 3 HD, Kokoro, Edge, Piper)
-argument-hint: [on|off|status|voices|voice <name|default> [--session|--project|--agent]|engine google|kokoro|edge|piper|speed 1.1|glow on|off|idle <minutes>|model small|full|test]
+argument-hint: [on|off|status|voices|voice <name|default> [--session|--project|--agent]|engine google|kokoro|edge|piper|speed 1.1|glow on|off|glow size <px>|glow corner <px|auto>|idle <minutes>|model small|full|test]
 allowed-tools: Bash({PY}:*)
 ---
 !`{quoted(PY)} {quoted(SCRIPTS + '/speak_ctl.py')} $ARGUMENTS`

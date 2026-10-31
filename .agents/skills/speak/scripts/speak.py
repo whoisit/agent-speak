@@ -39,6 +39,8 @@ DEFAULT_STATE = {
     "voice": "en-US-Chirp3-HD-Charon",  # Google voice
     "fallback_voice": "en-US-Wavenet-D",  # used once the main voice's family is out of free characters
     "edge_voice": "en-US-AndrewNeural",
+    "glow_size": 27,  # how far the glow reaches outside the window, in pixels at 96 dpi
+    "glow_corner": "auto",  # window corner radius in pixels at 96 dpi; "auto": rounded on Windows 11 only
     # Monthly character limits per Google voice family, kept under each free tier
     # (Chirp 3 HD: 1M free, WaveNet: 4M free per the Cloud TTS pricing page)
     "budgets": {"Chirp3": 900000, "Wavenet": 3800000},
