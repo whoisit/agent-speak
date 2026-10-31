@@ -38,8 +38,8 @@ Restart the agent, then run `/speak on` and `/speak test`. Both installers can b
 example after moving the folder; they back up the settings file they change.
 
 **Optional, Google voices:** copy `.env.example` to `.env`, add a Google Cloud Text-to-Speech API key, and
-run `/speak engine google`. Usage is kept under the monthly free tiers (900K Chirp 3 HD and 3.8M
-WaveNet characters).
+run `/speak engine google`. Replies are read in full; usage is kept under the monthly free tiers by
+switching from Chirp 3 HD to WaveNet at 900K characters, and to Kokoro at 3.8M WaveNet characters.
 
 ## Commands
 
@@ -57,7 +57,6 @@ WaveNet characters).
 | `/speak model small\|full` | Kokoro model size: small (int8, ~200 MB RAM) or full (~400 MB RAM, about 20% faster) |
 | `/speak glow on\|off` | Glowing outline around the window that is speaking (also in the tray panel) |
 | `/speak idle 20` | Unload the voice model after this many minutes without speech (`0` = keep it loaded) |
-| `/speak length 1500` | Max characters spoken per reply with Google |
 
 `--session` works in Claude Code only; Antigravity doesn't tell commands which session they run in.
 
@@ -82,7 +81,7 @@ in a window that highlights each sentence as it is spoken. Right-click for the s
   it plays, falling back engine by engine:
   - `kokoro`: **Kokoro** → **Piper**
   - `google`: **Chirp 3 HD** → **WaveNet** → Kokoro → Piper
-  - `edge`: **Edge Read Aloud** (free, unofficial, sometimes flaky) → Google → Kokoro → Piper
+  - `edge`: **Edge Read Aloud** (free, unofficial, sometimes flaky) → Kokoro → Piper
 - Settings live in `.agents/skills/speak/state.json`, shared by every agent and session.
 
 ## Files

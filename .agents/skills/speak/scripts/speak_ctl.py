@@ -1,6 +1,6 @@
 """Backend for the Claude Code /speak slash command.
 
-Usage: speak_ctl.py [on|off|status|voices|voice <name|default> [--session|--project|--agent]|engine <google|kokoro|edge|piper>|speed <1.1>|length <chars>|glow <on|off>|idle <minutes>|model <small|full>|test]
+Usage: speak_ctl.py [on|off|status|voices|voice <name|default> [--session|--project|--agent]|engine <google|kokoro|edge|piper>|speed <1.1>|glow <on|off>|idle <minutes>|model <small|full>|test]
 """
 import os
 import re
@@ -128,7 +128,6 @@ def status(state):
     usage = state["usage"]
     voice = {"edge": state["edge_voice"], "kokoro": state["kokoro_voice"]}.get(
         state["engine"], f"{state['voice']} (then {state['fallback_voice']})")
-    length = f"max {state['max_chars']} chars per reply" if state["engine"] == "google" else "full replies"
     google = ", ".join(f"{family} {usage.get(family, 0):,} / {budget:,}"
                        for family, budget in state["budgets"].items())
     idle = state.get("idle_minutes", 20)
@@ -136,7 +135,7 @@ def status(state):
         f"Speech is {'ON' if state['enabled'] else 'OFF'} | "
         f"server: {'running' if speak_server.request({'cmd': 'ping'}) else 'not running'} | engine: {state['engine']} | "
         f"voice: {voice} | local fallback: Kokoro {state['kokoro_voice']} ({state['kokoro_model']} model) | speed {state['speed']}x | "
-        f"{length} | glow {'on' if state.get('glow', True) else 'off'} | "
+        f"glow {'on' if state.get('glow', True) else 'off'} | "
         f"{f'unloads after {idle} min idle' if idle else 'stays loaded'} | "
         f"Google free chars used {usage.get('month') or 'this month'}: {google}"
     )
@@ -183,8 +182,6 @@ def main(args):
         # "1.1", "110%" -> 1.1; clamped to a range every engine accepts
         value = float(arg.rstrip("%")) / (100 if arg.endswith("%") else 1)
         state["speed"] = round(min(max(value, 0.5), 2.0), 2)
-    elif cmd == "length" and arg.isdigit():
-        state["max_chars"] = int(arg)
     elif cmd == "glow" and arg in ("on", "off"):
         state["glow"] = arg == "on"
     elif cmd == "model" and arg in ("small", "full"):
@@ -207,7 +204,7 @@ def main(args):
         if not speak_server.request({"cmd": "speak", "text": "This is how I sound.", **source}):
             speak_server.start_detached("This is how I sound.", source)
     elif cmd != "status":
-        print("Usage: /speak [on|off|status|voices|voice <name|default> [--session|--project|--agent]|engine <google|kokoro|edge|piper>|speed <1.1>|length <chars>|glow <on|off>|idle <minutes>|model <small|full>|test]")
+        print("Usage: /speak [on|off|status|voices|voice <name|default> [--session|--project|--agent]|engine <google|kokoro|edge|piper>|speed <1.1>|glow <on|off>|idle <minutes>|model <small|full>|test]")
         return
 
     save_state(state)

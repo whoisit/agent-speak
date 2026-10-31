@@ -11,14 +11,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def truncate(text, max_chars):
-    if len(text) <= max_chars:
-        return text
-    cut = text[:max_chars]
-    end = max((m.end() for m in re.finditer(r"[.!?](?=\s)", cut)), default=0)
-    return cut[:end] if end > max_chars // 3 else cut.rsplit(" ", 1)[0] + "."
-
-
 def extract_last_reply(transcript_path):
     """Return (last_reply_text, already_spoke_in_turn) since the last USER_INPUT step."""
     if not transcript_path or not os.path.exists(transcript_path):
@@ -102,8 +94,6 @@ def run():
     import windows
 
     text = clean(reply)
-    if state.get("engine") == "google":
-        text = truncate(text, state.get("max_chars", 1500))
     if not text:
         return
 

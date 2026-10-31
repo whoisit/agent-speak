@@ -4,7 +4,6 @@ Does nothing unless /speak is on. Synthesis and playback run in the background
 speech server so the hook returns immediately.
 """
 import os
-import re
 import sys
 import json
 
@@ -39,14 +38,6 @@ def last_reply_from_transcript(path):
     return last
 
 
-def truncate(text, max_chars):
-    if len(text) <= max_chars:
-        return text
-    cut = text[:max_chars]
-    end = max((m.end() for m in re.finditer(r"[.!?](?=\s)", cut)), default=0)
-    return cut[:end] if end > max_chars // 3 else cut.rsplit(" ", 1)[0] + "."
-
-
 def main():
     state = load_state()
     if not state["enabled"]:
@@ -57,8 +48,6 @@ def main():
         data = {}
     reply = data.get("last_assistant_message") or last_reply_from_transcript(data.get("transcript_path", ""))
     text = clean(reply)
-    if state["engine"] == "google":  # only Google has a paid tier; local engines read the whole reply
-        text = truncate(text, state["max_chars"])
     if not text:
         return
     # Tagged with the session so parallel sessions take turns instead of cutting each other off,

@@ -31,7 +31,6 @@ Speak virtual environment:
 - `voice <name> --agent`: voice for all Antigravity sessions only; `--project` for every session in the current folder. `voice default --agent` / `--project` removes it. (`--session` is Claude Code only.)
 - `engine <kokoro|google|edge|piper>`: preferred engine
 - `speed <rate>`: speaking rate, `0.5`–`2.0` or a percentage like `120%`
-- `length <chars>`: max characters spoken per reply with Google
 - `glow on` / `glow off`: glowing outline around the window that is speaking
 - `idle <minutes>`: unload the voice model after this long without speech (`0` = never)
 - `model small` / `model full`: Kokoro model size (small: ~190 MB RAM; full: ~400 MB RAM)
