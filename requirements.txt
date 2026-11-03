@@ -5,3 +5,4 @@ sounddevice>=0.4
 pystray>=0.19
 pillow>=10.0
 edge-tts>=7.0
+comtypes>=1.4

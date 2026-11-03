@@ -13,6 +13,7 @@ from ctypes import wintypes
 
 import speak
 from glow import Glow
+from highlight import Highlight
 from textclean import clean
 
 BG, HOVER, FG, DIM_FG = "#202020", "#383838", "#f2f2f2", "#8a8a8a"
@@ -52,6 +53,7 @@ class UI:
         self.root.withdraw()
         self.panel = Panel(self)
         self.glow = Glow(self.root, self.player, self.tray)
+        self.highlight = Highlight(self.root, self.player)
         self._poll()
         self.root.mainloop()
 

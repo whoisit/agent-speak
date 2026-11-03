@@ -41,6 +41,7 @@ DEFAULT_STATE = {
     "edge_voice": "en-US-AndrewNeural",
     "glow_size": 27,  # how far the glow reaches outside the window, in pixels at 96 dpi
     "glow_corner": "auto",  # window corner radius in pixels at 96 dpi; "auto": rounded on Windows 11 only
+    "highlight": True,  # highlight the sentence being read in the session's terminal
     # Monthly character limits per Google voice family, kept under each free tier
     # (Chirp 3 HD: 1M free, WaveNet: 4M free per the Cloud TTS pricing page)
     "budgets": {"Chirp3": 900000, "Wavenet": 3800000},

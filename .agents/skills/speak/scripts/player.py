@@ -162,6 +162,15 @@ class Player:
                 state = "speaking" if self.current else "idle"
             return state, len(self.queue), self.current.label if self.current else ""
 
+    def chunk_progress(self):
+        """How much of the playing chunk has been heard, 0..1 (what's still in the device buffer isn't)."""
+        with self.buf_lock:
+            buf, pos = self.buf, self.pos
+        if buf is None or not len(buf):
+            return 0.0
+        latency = int(self.stream.latency * RATE) if self.stream.active else 0
+        return max(0, pos - latency) / len(buf)
+
     def read_level(self):
         """Loudest block RMS since the last call (0..~0.5)."""
         level, self.peak = self.peak, 0.0

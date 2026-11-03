@@ -6,7 +6,8 @@ Speak reads it aloud in a natural voice while you keep working, with a tray icon
 - **Local and free by default:** [Kokoro-82M](https://github.com/thewh1teagle/kokoro-onnx) runs on the CPU
   (about 200 MB RAM with the small model). Google Chirp 3 HD, Edge Read Aloud and Piper are optional.
 - **Several sessions at once:** replies queue up instead of talking over each other, each session,
-  project or agent can have its own voice, and the window that is speaking gets a glowing outline.
+  project or agent can have its own voice, and the window that is speaking gets a glowing outline, with
+  the sentence being read highlighted in place.
 - **Reads replies, not markup:** code blocks, tables, links, paths, emoji and dividers are stripped first.
 - **Stays out of the way:** a background server keeps the voice loaded so speech starts in under a
   second, and unloads itself after 20 idle minutes.
@@ -58,6 +59,7 @@ switching from Chirp 3 HD to WaveNet at 900K characters, and to Kokoro at 3.8M W
 | `/speak glow on\|off` | Glowing outline around the window that is speaking (also in the tray panel) |
 | `/speak glow size 27` | How far the glow reaches outside the window, in pixels (1–100) |
 | `/speak glow corner 8\|auto` | Corner radius of the window the glow hugs; `auto` is rounded on Windows 11, square on Windows 10. The glow's outer corners are always rounded |
+| `/speak highlight on\|off` | Highlight the sentence being read, in place, in the session's terminal (Windows Terminal and the classic console; see below) |
 | `/speak idle 20` | Unload the voice model after this many minutes without speech (`0` = keep it loaded) |
 
 `--session` works in Claude Code only; Antigravity doesn't tell commands which session they run in.
@@ -79,6 +81,11 @@ in a window that highlights each sentence as it is spoken. Right-click for the s
 - The hook also finds the window its session is shown in (through the agent's console, since all
   Windows Terminal windows share one process) for the glow. With several tabs in one terminal window,
   the whole window glows.
+- The sentence being read is highlighted where it is shown: the terminal's visible text is read through
+  UI Automation (the interface screen readers use), the sentence is matched by its words (what is
+  spoken has lost its markdown, so the match allows for missing and extra words), and soft blue boxes
+  are drawn over it. Only text that is on screen can be highlighted, and only in terminals that expose
+  their text this way: Windows Terminal and the classic console do; Antigravity's terminal doesn't yet.
 - Text is synthesized in sentence chunks, a short first one so playback starts quickly and the rest while
   it plays, falling back engine by engine:
   - `kokoro`: **Kokoro** → **Piper**
@@ -99,6 +106,8 @@ in a window that highlights each sentence as it is spoken. Right-click for the s
     ├── textclean.py         markdown → speakable text
     ├── tray.py, ui.py       tray LED, control panel, clipboard reader
     ├── glow.py, windows.py  window outline, finding a session's window
+    ├── highlight.py, screentext.py  highlighting the sentence being read in the terminal
+    ├── overlay.py           click-through windows the glow and highlight are drawn in
     ├── claude_stop_hook.py, agy_stop_hook.py
     ├── install_claude.py, install_antigravity.py
     └── download_models.py
