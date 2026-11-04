@@ -5,8 +5,8 @@ tray panel's Quit, or after `idle_minutes` without speech (the next reply starts
 per connection, e.g.
     {"cmd": "speak", "text": "...", "session": "...", "label": "...", "project": "...", "agent": "...",
      "window": 123} | {"cmd": "stop"} | {"cmd": "pause"} | {"cmd": "ping"} | {"cmd": "shutdown"}
-Everything but "text" is optional (see player.SOURCE_KEYS). Replies from different sessions queue up; a newer one from the
-same session replaces that session's older one (see Player.say).
+Everything but "text" is optional (see player.SOURCE_KEYS). Every reply queues up behind what is already playing or
+waiting, whichever session sent it (see Player.say).
 """
 import os
 import ctypes

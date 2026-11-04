@@ -1,6 +1,6 @@
 """Tray flyout panel and clipboard reader window, on their own Tk thread.
 
-Panel: play/pause, next paragraph, next reply (the next session's, when several are queued),
+Panel: play/pause, next paragraph, next reply (the next queued one),
 stop and clear, speed, window glow on/off, read clipboard, quit. The status line names the session speaking.
 Reader: shows the clipboard text and highlights the chunk being spoken; closing it stops that reading.
 """
@@ -198,7 +198,7 @@ class Panel:
             text = clean(self.win.clipboard_get())
         except tk.TclError:  # empty, or not text
             text = ""
-        reply = self.ui.player.say(text, interrupt=True) if text else None
+        reply = self.ui.player.say(text, {"label": "Clipboard"}) if text else None
         if not reply:
             self.status.configure(text="Clipboard has no text")
             return
@@ -216,7 +216,7 @@ class Reader:
     def __init__(self, ui, reply):
         self.ui, self.reply = ui, reply
         self.win = win = tk.Toplevel(ui.root, bg=BG)
-        win.title("Speak: reading clipboard")
+        win.title("Speak: clipboard, waiting its turn")  # _tick switches it once this reply plays
         k = win.winfo_fpixels("1i") / 96
         left, top, right, bottom = work_area()
         w, h = round(640 * k), round(460 * k)
@@ -257,6 +257,9 @@ class Reader:
             self._mark(len(self.spans))
             self.win.after(2000, self.win.destroy)
             return
+        title = "Speak: reading clipboard" if player.current is reply else "Speak: clipboard, waiting its turn"
+        if self.win.title() != title:
+            self.win.title(title)
         if player.current is reply and reply.index != self.shown:
             self._mark(reply.index)
         self.win.after(100, self._tick)

@@ -67,7 +67,7 @@ switching from Chirp 3 HD to WaveNet at 900K characters, and to Kokoro at 3.8M W
 ## Tray panel
 
 Left-click the tray LED for play / pause, **Paragraph** (skip ahead), **Reply** (move on to the next
-session's reply), stop and clear, speed, glow on/off, and **Read clipboard**, which reads the copied text
+queued reply), stop and clear, speed, glow on/off, and **Read clipboard**, which reads the copied text
 in a window that highlights each sentence as it is spoken. Right-click for the same controls as a menu.
 
 ## How it works
@@ -76,8 +76,9 @@ in a window that highlights each sentence as it is spoken. Right-click for the s
   owns the tray icon. The Stop hooks (`claude_stop_hook.py`, `agy_stop_hook.py`) clean up each final reply
   and hand it over, starting the server first if it isn't running (after a reboot or an idle unload, the
   first reply takes about 2.5 s longer).
-- Replies from different sessions play one after another; a newer reply from the same session replaces
-  that session's older one, so nothing stale piles up.
+- Everything plays in the order it arrives and nothing is cut off: replies from any session, window or
+  tab, a newer reply from the session already speaking, **Read clipboard**, and one-off `speak.py`
+  readings all wait their turn. **Paragraph**, **Reply** and stop are how to move on.
 - The hook also finds the window its session is shown in (through the agent's console, since all
   Windows Terminal windows share one process) for the glow. With several tabs in one terminal window,
   the whole window glows.

@@ -53,4 +53,5 @@ If spoken replies are off and the user asks you to read some text or say somethi
 & "venv\Scripts\python.exe" ".agents\skills\speak\scripts\speak.py" "Clean natural text with no markdown or URLs."
 ```
 
-Optional flags: `--engine <kokoro|google|edge|piper>`, `--voice <name>`.
+Optional flags: `--engine <kokoro|google|edge|piper>`, `--voice <name>`. It never cuts off speech that is
+already playing: the text waits its turn.

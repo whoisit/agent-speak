@@ -29,7 +29,7 @@ def load_audio(path):
     return data
 
 
-SOURCE_KEYS = ("session", "label", "project", "agent", "window")
+SOURCE_KEYS = ("session", "label", "project", "agent", "window", "engine", "voice")
 
 
 class Reply:
@@ -40,6 +40,8 @@ class Reply:
         self.project = source.get("project")   # session's folder, for per-project voices
         self.agent = source.get("agent")       # "claude" or "antigravity", for per-agent voices
         self.window = source.get("window")     # handle of the session's window, for the glow
+        self.engine = source.get("engine")     # speak.py --engine / --voice; None = from state
+        self.voice = source.get("voice")
         # (paragraph index, chunk text) pairs; paragraphs are separated by blank lines
         self.paragraphs = re.split(r"\n\s*\n", text.strip())
         self.chunks = [(p, chunk) for p, para in enumerate(self.paragraphs)
@@ -71,35 +73,20 @@ class Player:
 
     # --- controls (called from the socket server and the tray) ---
 
-    def say(self, text, source=None, interrupt=False):
-        """Queue text; returns its Reply (None if nothing speakable).
+    def say(self, text, source=None):
+        """Queue text behind everything already playing or waiting; returns its Reply (None if
+        nothing speakable).
 
-        Replies from different sessions play one after another. A newer reply from the same
-        session replaces that session's older one, playing or queued (while paused it only
-        replaces a queued one). interrupt=True (the clipboard reader) always plays right away,
-        resuming if paused. source holds SOURCE_KEYS (all optional).
+        Nothing is ever cut off: replies play in the order they arrive, whatever session, window
+        or tab they come from, and so do clipboard and one-off readings. Skip paragraph, next
+        reply and stop are how to move on. source holds SOURCE_KEYS (all optional).
         """
         reply = Reply(text, source)
-        session = reply.session
         if not reply.chunks:
             return None
         speak.stop_standalone()  # a standalone speak.py may still be playing
         with self.cond:
-            if interrupt:
-                self.queue.appendleft(reply)
-                self._cancel_current()
-                self.paused = False
-            else:
-                older = next((r for r in self.queue if session and r.session == session), None)
-                if older:  # take the older reply's place in line
-                    self.queue[self.queue.index(older)] = reply
-                    older.cancelled = True
-                elif (session and self.current and self.current.session == session
-                      and not self.paused):
-                    self.queue.appendleft(reply)
-                    self._cancel_current()
-                else:
-                    self.queue.append(reply)
+            self.queue.append(reply)
             self.cond.notify_all()
         return reply
 
@@ -259,7 +246,7 @@ class Player:
 
     def _synthesize(self, reply):
         state = speak.voices_for(speak.load_state(), reply.session, reply.project, reply.agent)
-        synth = speak.Synthesizer(state, state["engine"], None, speak.VOICE_MODEL)
+        synth = speak.Synthesizer(state, reply.engine or state["engine"], reply.voice, speak.VOICE_MODEL)
         tmp_dir = tempfile.mkdtemp(prefix="speak_")
         try:
             i = 0

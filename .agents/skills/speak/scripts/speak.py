@@ -131,9 +131,36 @@ def stop_standalone():
             pass
 
 
-def stop_previous():
-    """Terminate the previous speak process tree so voices never overlap, then register this one."""
-    stop_standalone()
+def _standalone_alive(pid):
+    """True if pid is a running Python process (a speak.py still playing), not a reused PID."""
+    k32 = ctypes.windll.kernel32
+    k32.OpenProcess.restype = ctypes.c_void_p
+    handle = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        if not k32.GetExitCodeProcess(ctypes.c_void_p(handle), ctypes.byref(code)) or code.value != 259:
+            return False  # 259 = STILL_ACTIVE
+        name, size = ctypes.create_unicode_buffer(1024), ctypes.c_ulong(1024)
+        k32.QueryFullProcessImageNameW(ctypes.c_void_p(handle), 0, name, ctypes.byref(size))
+        return "python" in os.path.basename(name.value).lower()
+    finally:
+        k32.CloseHandle(ctypes.c_void_p(handle))
+
+
+def wait_turn():
+    """Wait while another standalone speak.py is playing, then register this one, so one-off
+    readings take turns instead of cutting each other off (stop_standalone still stops one)."""
+    while True:
+        try:
+            with open(PID_FILE, "r") as f:
+                pid = int(f.read().strip())
+        except (OSError, ValueError):
+            break
+        if pid == os.getpid() or not _standalone_alive(pid):
+            break
+        time.sleep(0.2)
     try:
         os.makedirs(SKILL_DIR, exist_ok=True)
         with open(PID_FILE, "w") as f:
@@ -394,9 +421,21 @@ def speak_text(text, voice_model=VOICE_MODEL, engine=None, voice=None, stop_even
 
 
 def speak(text, voice_model=VOICE_MODEL, engine=None, voice=None):
-    from speak_server import request
-    request({"cmd": "stop"}, timeout=0.3)  # silence the background server if it's speaking
-    stop_previous()
+    """Read text once, after anything already playing. While the speech server runs (or speech is
+    on, which starts it), the text joins its queue and this returns at once; otherwise it plays
+    here, after any other standalone reading."""
+    import speak_server
+    import windows
+    cwd = os.getcwd()
+    source = {"label": os.path.basename(os.path.normpath(cwd)) or "speak.py", "project": cwd,
+              "window": windows.session_window(), "engine": engine, "voice": voice}
+    if voice_model == VOICE_MODEL:  # the server only knows the default Piper model
+        if speak_server.request({"cmd": "speak", "text": text, **source}):
+            return True
+        if load_state()["enabled"]:
+            speak_server.start_detached(text, source)
+            return True
+    wait_turn()
     try:
         return speak_text(text, voice_model, engine, voice)
     finally:
