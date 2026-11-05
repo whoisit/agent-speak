@@ -247,7 +247,15 @@ class Player:
     def _synthesize(self, reply):
         state = speak.voices_for(speak.load_state(), reply.session, reply.project, reply.agent)
         synth = speak.Synthesizer(state, reply.engine or state["engine"], reply.voice, speak.VOICE_MODEL)
-        tmp_dir = os.path.join(tempfile.gettempdir(), f"speak_{id(reply)}")
+        tmp_dir = None
+
+        def chunk_path(i):
+            # Kokoro stays in memory; only the engines that write a file get a private temp folder
+            nonlocal tmp_dir
+            if tmp_dir is None:
+                tmp_dir = tempfile.mkdtemp(prefix="speak_")
+            return os.path.join(tmp_dir, str(i))
+
         try:
             i = 0
             while True:
@@ -259,7 +267,7 @@ class Player:
                         return
                 synth.state["speed"] = speak.load_state()["speed"]  # speed changes apply from the next chunk
                 try:
-                    out = synth.synth(reply.chunks[i][1], os.path.join(tmp_dir, str(i)), in_memory=True)
+                    out = synth.synth(reply.chunks[i][1], lambda: chunk_path(i), in_memory=True)
                     if isinstance(out, str):
                         reply.audio[i] = load_audio(out)
                         os.remove(out)
@@ -270,5 +278,5 @@ class Player:
                 reply.ready[i].set()
                 i += 1
         finally:
-            if os.path.isdir(tmp_dir):
+            if tmp_dir:
                 shutil.rmtree(tmp_dir, ignore_errors=True)

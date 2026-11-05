@@ -346,7 +346,8 @@ class Synthesizer:
         """Synthesize one chunk with the first engine that works. Online engines that fail are
         skipped for the rest of the reply; local ones only for this chunk (a failure there is
         usually about the text, and the next chunk should still get the chosen voice).
-        With in_memory=True, Kokoro returns its float32 mono array directly without touching disk."""
+        With in_memory=True, Kokoro returns its float32 mono array directly without touching disk.
+        base_path may be a function returning the path, so a temp folder is only made when a file is."""
         for engine in list(self.order):
             if engine == "google":
                 voice, family = self.google_voice_within_budget(text)
@@ -358,7 +359,8 @@ class Synthesizer:
             try:
                 if engine == "kokoro" and in_memory:
                     return create_kokoro(text, self.voices["kokoro"], speed)[0]
-                os.makedirs(os.path.dirname(base_path), exist_ok=True)
+                if callable(base_path):
+                    base_path = base_path()
                 path = base_path + (".mp3" if engine == "edge" else ".wav")
                 if engine == "google":
                     synth_google(text, voice, path, speed)
