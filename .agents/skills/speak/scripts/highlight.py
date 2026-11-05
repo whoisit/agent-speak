@@ -83,12 +83,17 @@ class Highlight:
         self.overlay.win.after(1000 // FPS, self._tick)
 
     def _update(self):
+        player, overlay = self.player, self.overlay
+        reply = player.current
+        if not reply and not overlay.shown:
+            if self.job is not None:
+                self.job = None
+                self.wake.set()
+            return
         now = time.monotonic()
         if now - self.checked > SETTINGS_EVERY:
             self.enabled = speak.load_state().get("highlight", True)
             self.checked = now
-        player, overlay = self.player, self.overlay
-        reply = player.current
         job = None
         if self.enabled and reply and reply.window and player.status()[0] in ("speaking", "paused"):
             index = reply.index

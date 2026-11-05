@@ -228,14 +228,23 @@ def load_kokoro():
         options.enable_cpu_mem_arena = False
         session = onnxruntime.InferenceSession(model, options, providers=["CPUExecutionProvider"])
         _kokoro = Kokoro.from_session(session, os.path.join(KOKORO_DIR, "voices-v1.0.bin"))
+        _kokoro.create("a", voice="af_heart", speed=1.0, lang="en-us")  # warm up espeak-ng and ONNX buffers
     return _kokoro
+
+
+def create_kokoro(text, voice, speed=1.0):
+    """Synthesize with local Kokoro-82M in memory; returns (float32 mono array, 24000)."""
+    audio, sample_rate = load_kokoro().create(text, voice=voice, speed=speed,
+                                               lang="en-gb" if voice.startswith("b") else "en-us")
+    if len(audio) == 0:
+        raise RuntimeError("empty audio")
+    return audio, sample_rate
 
 
 def synth_kokoro(text, voice, out_path, speed=1.0):
     # Local Kokoro-82M via ONNX: free and unlimited, ~2x realtime on CPU
     import soundfile as sf
-    audio, sample_rate = load_kokoro().create(text, voice=voice, speed=speed,
-                                               lang="en-gb" if voice.startswith("b") else "en-us")
+    audio, sample_rate = create_kokoro(text, voice, speed)
     sf.write(out_path, audio, sample_rate)
 
 
@@ -333,10 +342,11 @@ class Synthesizer:
                 return voice, family
         return None, None
 
-    def synth(self, text, base_path):
+    def synth(self, text, base_path, in_memory=False):
         """Synthesize one chunk with the first engine that works. Online engines that fail are
         skipped for the rest of the reply; local ones only for this chunk (a failure there is
-        usually about the text, and the next chunk should still get the chosen voice)."""
+        usually about the text, and the next chunk should still get the chosen voice).
+        With in_memory=True, Kokoro returns its float32 mono array directly without touching disk."""
         for engine in list(self.order):
             if engine == "google":
                 voice, family = self.google_voice_within_budget(text)
@@ -344,9 +354,12 @@ class Synthesizer:
                     print("Monthly free Google characters used up, skipping Google.", file=sys.stderr)
                     self.order.remove(engine)
                     continue
-            path = base_path + (".mp3" if engine == "edge" else ".wav")
             speed = self.state["speed"]
             try:
+                if engine == "kokoro" and in_memory:
+                    return create_kokoro(text, self.voices["kokoro"], speed)[0]
+                os.makedirs(os.path.dirname(base_path), exist_ok=True)
+                path = base_path + (".mp3" if engine == "edge" else ".wav")
                 if engine == "google":
                     synth_google(text, voice, path, speed)
                     self.state["usage"][family] = self.state["usage"].get(family, 0) + len(text)

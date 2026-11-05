@@ -28,7 +28,7 @@ Speak virtual environment:
 - `status`: on/off, server, engine, voice, speed, model, and Google characters used this month
 - `voices`: list the voices of the active engine (current one marked with `*`)
 - `voice <name>`: set the default voice by short or full name (typos tolerated: `lily`, `george`, `Charon`, `Wavenet-D`, `Andrew`)
-- `voice <name> --agent`: voice for all Antigravity sessions only; `--project` for every session in the current folder. `voice default --agent` / `--project` removes it. (`--session` is Claude Code only.)
+- `voice <name> --session`: voice for this session only; `--project`: every session in the current folder; `--agent`: all Antigravity sessions. `voice default --session` / `--project` / `--agent` removes it.
 - `engine <kokoro|google|edge|piper>`: preferred engine
 - `speed <rate>`: speaking rate, `0.5`–`2.0` or a percentage like `120%`
 - `glow on` / `glow off`: glowing outline around the window that is speaking

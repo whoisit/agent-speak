@@ -247,7 +247,7 @@ class Player:
     def _synthesize(self, reply):
         state = speak.voices_for(speak.load_state(), reply.session, reply.project, reply.agent)
         synth = speak.Synthesizer(state, reply.engine or state["engine"], reply.voice, speak.VOICE_MODEL)
-        tmp_dir = tempfile.mkdtemp(prefix="speak_")
+        tmp_dir = os.path.join(tempfile.gettempdir(), f"speak_{id(reply)}")
         try:
             i = 0
             while True:
@@ -259,12 +259,16 @@ class Player:
                         return
                 synth.state["speed"] = speak.load_state()["speed"]  # speed changes apply from the next chunk
                 try:
-                    path = synth.synth(reply.chunks[i][1], os.path.join(tmp_dir, str(i)))
-                    reply.audio[i] = load_audio(path)
-                    os.remove(path)
+                    out = synth.synth(reply.chunks[i][1], os.path.join(tmp_dir, str(i)), in_memory=True)
+                    if isinstance(out, str):
+                        reply.audio[i] = load_audio(out)
+                        os.remove(out)
+                    else:
+                        reply.audio[i] = out
                 except Exception as e:
                     reply.audio[i] = e
                 reply.ready[i].set()
                 i += 1
         finally:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+            if os.path.isdir(tmp_dir):
+                shutil.rmtree(tmp_dir, ignore_errors=True)

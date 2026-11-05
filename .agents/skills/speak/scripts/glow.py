@@ -63,15 +63,17 @@ class Glow:
         self.overlay.win.after(1000 // FPS, self._tick)
 
     def _update(self):
+        reply = self.player.current
+        overlay = self.overlay
+        if not reply and not overlay.shown:
+            return
         now = time.monotonic()
         if now - self.checked > SETTINGS_EVERY:
             self._apply_settings(speak.load_state())
             self.checked = now
-        reply = self.player.current
         state = self.player.status()[0]
         target = reply.window if self.enabled and reply and state in ("speaking", "paused") else None
         rect = windows.frame_rect(target) if target else None
-        overlay = self.overlay
         if rect:
             overlay.alpha = MIN_ALPHA + (MAX_ALPHA - MIN_ALPHA) * self.tray.brightness
             left, top, right, bottom = rect

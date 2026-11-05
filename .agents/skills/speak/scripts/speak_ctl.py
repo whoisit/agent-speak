@@ -23,7 +23,7 @@ def this_agent():
 def scope_target(scope):
     """(scope, value) for the session, project or agent running this command; value is None if unknown."""
     if scope == "session":
-        return scope, os.environ.get("CLAUDE_CODE_SESSION_ID")  # Claude Code sets it; Antigravity doesn't
+        return scope, os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
     if scope == "project":
         return scope, os.getcwd()
     return scope, this_agent()

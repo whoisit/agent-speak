@@ -22,12 +22,16 @@ COMMAND = f"""---
 description: Spoken replies on/off (Google Chirp 3 HD, Kokoro, Edge, Piper)
 argument-hint: [on|off|status|voices|voice <name|default> [--session|--project|--agent]|engine google|kokoro|edge|piper|speed 1.1|glow on|off|glow size <px>|glow corner <px|auto>|highlight on|off|idle <minutes>|model small|full|test]
 allowed-tools: Bash({PY}:*)
+model: haiku
 ---
 !`{quoted(PY)} {quoted(SCRIPTS + '/speak_ctl.py')} $ARGUMENTS`
 
 If the output above is a voice list, show it to the user as a short markdown list, keeping the * marks. Otherwise reply with one short plain sentence restating that status (e.g. "Speech is on, using the Charon voice."). Nothing else.
 """
-HOOK_CMD = f"{quoted(PY)} {quoted(SCRIPTS + '/claude_stop_hook.py')}"
+HOOKS = {  # event -> script; the prompt hook answers /speak itself so it never costs a model turn
+    "Stop": "claude_stop_hook.py",
+    "UserPromptSubmit": "claude_prompt_hook.py",
+}
 
 os.makedirs(os.path.join(CLAUDE_DIR, "commands"), exist_ok=True)
 with open(os.path.join(CLAUDE_DIR, "commands", "speak.md"), "w", encoding="utf-8") as f:
@@ -41,17 +45,23 @@ if os.path.exists(settings_path):
     with open(settings_path, "r", encoding="utf-8") as f:
         settings = json.load(f)
 
-stop = settings.setdefault("hooks", {}).setdefault("Stop", [])
-ours = [h for g in stop for h in g.get("hooks", []) if "claude_stop_hook.py" in h.get("command", "")]
-if any(h["command"] == HOOK_CMD for h in ours):
-    print("Stop hook already installed")
-else:
+changed = False
+for event, script in HOOKS.items():
+    cmd = f"{quoted(PY)} {quoted(SCRIPTS + '/' + script)}"
+    groups = settings.setdefault("hooks", {}).setdefault(event, [])
+    ours = [h for g in groups for h in g.get("hooks", []) if script in h.get("command", "")]
+    if any(h["command"] == cmd for h in ours):
+        print(f"{event} hook already installed")
+        continue
     if ours:  # an older install, e.g. from before the repo moved: point it here
-        ours[0]["command"] = HOOK_CMD
+        ours[0]["command"] = cmd
     else:
-        stop.append({"hooks": [{"type": "command", "command": HOOK_CMD, "timeout": 10}]})
+        groups.append({"hooks": [{"type": "command", "command": cmd, "timeout": 10}]})
+    changed = True
+    print(f"Installed the {event} hook")
+if changed:
     with open(settings_path, "w", encoding="utf-8") as f:
         json.dump(settings, f, indent=2)
-    print("Installed the Stop hook in ~/.claude/settings.json (backup: settings.json.bak-speak)")
+    print("Saved ~/.claude/settings.json (backup: settings.json.bak-speak)")
 
 print("Done. Restart Claude Code, then try /speak on and /speak test.")

@@ -31,8 +31,8 @@ the Piper last-resort fallback.
 Then hook it into your agent (both can share one install):
 
 ```powershell
-venv\Scripts\python .agents\skills\speak\scripts\install_claude.py       # Claude Code: /speak + Stop hook
-venv\Scripts\python .agents\skills\speak\scripts\install_antigravity.py  # Antigravity: speak skill + Stop hook
+venv\Scripts\python .agents\skills\speak\scripts\install_claude.py       # Claude Code: /speak + Stop and prompt hooks
+venv\Scripts\python .agents\skills\speak\scripts\install_antigravity.py  # Antigravity: speak skill + Stop and prompt hooks
 ```
 
 Restart the agent, then run `/speak on` and `/speak test`. Both installers can be re-run safely, for
@@ -62,8 +62,6 @@ switching from Chirp 3 HD to WaveNet at 900K characters, and to Kokoro at 3.8M W
 | `/speak highlight on\|off` | Highlight the sentence being read, in place, in the session's terminal (Windows Terminal and the classic console; see below) |
 | `/speak idle 20` | Unload the voice model after this many minutes without speech (`0` = keep it loaded) |
 
-`--session` works in Claude Code only; Antigravity doesn't tell commands which session they run in.
-
 ## Tray panel
 
 Left-click the tray LED for play / pause, **Paragraph** (skip ahead), **Reply** (move on to the next
@@ -76,6 +74,9 @@ in a window that highlights each sentence as it is spoken. Right-click for the s
   owns the tray icon. The Stop hooks (`claude_stop_hook.py`, `agy_stop_hook.py`) clean up each final reply
   and hand it over, starting the server first if it isn't running (after a reboot or an idle unload, the
   first reply takes about 2.5 s longer).
+- `/speak` never reaches the model: prompt hooks (`claude_prompt_hook.py`, `agy_prompt_hook.py`) run it
+  directly and show the result, so it costs no tokens. The `/speak` command and skill files stay for
+  autocomplete and as a fallback.
 - Everything plays in the order it arrives and nothing is cut off: replies from any session, window or
   tab, a newer reply from the session already speaking, **Read clipboard**, and one-off `speak.py`
   readings all wait their turn. **Paragraph**, **Reply** and stop are how to move on.
@@ -110,6 +111,7 @@ in a window that highlights each sentence as it is spoken. Right-click for the s
     ├── highlight.py, screentext.py  highlighting the sentence being read in the terminal
     ├── overlay.py           click-through windows the glow and highlight are drawn in
     ├── claude_stop_hook.py, agy_stop_hook.py
+    ├── claude_prompt_hook.py, agy_prompt_hook.py  run /speak without a model turn
     ├── install_claude.py, install_antigravity.py
     └── download_models.py
 ```
