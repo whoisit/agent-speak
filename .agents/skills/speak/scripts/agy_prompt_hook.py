@@ -17,16 +17,6 @@ SPEAK = re.compile(r"\s*/speak(?:\s+(.*))?\s*$", re.S)
 COMMANDS = {"on", "off", "default", "toggle", "status", "voices", "voice", "engine", "speed", "glow", "highlight", "idle", "model", "test", "--session", "--project", "--agent", "--all"}
 
 
-def session_id(data):
-    if data.get("conversationId"):
-        return data["conversationId"]
-    transcript = data.get("transcriptPath") or ""
-    m = re.search(r"[/\\]brain[/\\]([0-9a-fA-F-]{36})[/\\]", transcript)
-    if m:
-        return m.group(1)
-    return ("agy:" + os.path.dirname(transcript)) if transcript else None
-
-
 def is_fresh_user_input(path):
     """True if the transcript's latest step is the user prompt itself (not a tool loop or wakeup)."""
     if not path or not os.path.exists(path):
@@ -52,7 +42,8 @@ def main():
         print("{}")
         return
     # speak_ctl reads the session and project from its environment
-    sid = session_id(data)
+    from speak import antigravity_session
+    sid = antigravity_session(data)
     if sid:
         os.environ["ANTIGRAVITY_CONVERSATION_ID"] = sid
     workspaces = data.get("workspacePaths") or []

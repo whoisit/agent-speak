@@ -99,6 +99,18 @@ def voices_for(state, session=None, project=None, agent=None):
     return merged
 
 
+def antigravity_session(data):
+    """Session ID for an Antigravity hook payload: its conversationId, else the conversation folder
+    in transcriptPath (.../brain/<uuid>/...), else the transcript's folder."""
+    if data.get("conversationId"):
+        return data["conversationId"]
+    transcript = data.get("transcriptPath") or ""
+    match = re.search(r"[/\\]brain[/\\]([0-9a-fA-F-]{36})[/\\]", transcript)
+    if match:
+        return match.group(1)
+    return ("agy:" + os.path.dirname(transcript)) if transcript else None
+
+
 def is_enabled(state=None, session=None, project=None, agent=None):
     """True if speech is enabled for this session, project, and agent after applying overrides."""
     return bool(voices_for(state or load_state(), session, project, agent).get("enabled"))

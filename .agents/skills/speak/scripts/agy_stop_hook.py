@@ -11,17 +11,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def session_id(data):
-    """Extract conversation ID from hook payload or transcriptPath."""
-    if data.get("conversationId"):
-        return data["conversationId"]
-    transcript = data.get("transcriptPath") or ""
-    m = re.search(r"[/\\]brain[/\\]([0-9a-fA-F-]{36})[/\\]", transcript)
-    if m:
-        return m.group(1)
-    return ("agy:" + os.path.dirname(transcript)) if transcript else None
-
-
 def extract_last_reply(transcript_path):
     """Return (last_reply_text, already_spoke_in_turn) since the last USER_INPUT step."""
     if not transcript_path or not os.path.exists(transcript_path):
@@ -82,11 +71,10 @@ def run():
     if not data.get("fullyIdle", True):
         return
 
-    session = session_id(data)
+    from speak import is_enabled, antigravity_session
+    session = antigravity_session(data)
     workspaces = data.get("workspacePaths") or []
     project = workspaces[0] if workspaces else None
-
-    from speak import is_enabled
     if not is_enabled(session=session, project=project, agent="antigravity"):
         return
 
