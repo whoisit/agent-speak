@@ -1,8 +1,9 @@
 """Claude Code UserPromptSubmit hook: runs /speak itself, so the command never reaches the model.
 
 The prompt is blocked and the speak_ctl output is shown to the user as the block reason: no model
-turn, no tokens. Any other prompt passes through untouched. If this hook is missing or fails, the
-/speak command file still works as a fallback (one cheap Haiku turn).
+turn, no tokens. A task prompt with a {speak off} / {speak on [--scope]} tag is applied here and
+then passes through to the model. Any other prompt passes through untouched. If this hook is
+missing or fails, the /speak command file still works as a fallback (one cheap Haiku turn).
 """
 import os
 import io
@@ -21,8 +22,8 @@ def main():
         data = json.load(sys.stdin.buffer)  # raw bytes: Windows would decode stdin as cp1252
     except Exception:
         return
-    match = SPEAK.fullmatch(data.get("prompt") or "")
-    if not match:
+    prompt = data.get("prompt") or ""
+    if "speak" not in prompt.lower():
         return
     # speak_ctl reads the session, project and agent from its environment, as under the command file
     os.environ["CLAUDECODE"] = "1"
@@ -31,6 +32,28 @@ def main():
     if data.get("cwd") and os.path.isdir(data["cwd"]):
         os.chdir(data["cwd"])
     import speak_ctl
+    match = SPEAK.fullmatch(prompt)
+    if not match:
+        inline = speak_ctl.inline_directive(prompt)
+        if not inline:
+            return
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out):
+                speak_ctl.main(inline)
+        except Exception as e:
+            out.write(f"/speak failed: {e}")
+        note = out.getvalue().strip().split(" Speech is ")[0]
+        # The user sees the result; the model is told the tag is already handled
+        print(json.dumps({
+            "systemMessage": note,
+            "hookSpecificOutput": {
+                "hookEventName": "UserPromptSubmit",
+                "additionalContext": f"The {{speak {inline[0]}}} tag in this prompt was already applied by the "
+                                     "speak hook. Ignore it and do the task; do not run /speak.",
+            },
+        }))
+        return
     out = io.StringIO()
     try:
         with contextlib.redirect_stdout(out):

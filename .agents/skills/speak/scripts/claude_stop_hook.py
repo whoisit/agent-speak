@@ -8,15 +8,6 @@ import sys
 import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-STATE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "state.json")
-
-
-def is_enabled():
-    try:
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            return bool(json.load(f).get("enabled"))
-    except Exception:
-        return False
 
 
 def last_reply_from_transcript(path):
@@ -53,12 +44,14 @@ def last_reply_from_transcript(path):
 
 
 def main():
-    if not is_enabled():
-        return
     try:
         data = json.load(sys.stdin.buffer)  # raw bytes: Windows would decode stdin as cp1252, mangling – into â€“
     except Exception:
         data = {}
+    cwd = data.get("cwd") or ""
+    from speak import is_enabled
+    if not is_enabled(session=data.get("session_id"), project=cwd or None, agent="claude"):
+        return
     reply = data.get("last_assistant_message") or last_reply_from_transcript(data.get("transcript_path", ""))
     if not reply:
         return

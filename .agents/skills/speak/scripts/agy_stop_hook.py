@@ -9,15 +9,17 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-STATE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "state.json")
 
 
-def is_enabled():
-    try:
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            return bool(json.load(f).get("enabled"))
-    except Exception:
-        return False
+def session_id(data):
+    """Extract conversation ID from hook payload or transcriptPath."""
+    if data.get("conversationId"):
+        return data["conversationId"]
+    transcript = data.get("transcriptPath") or ""
+    m = re.search(r"[/\\]brain[/\\]([0-9a-fA-F-]{36})[/\\]", transcript)
+    if m:
+        return m.group(1)
+    return ("agy:" + os.path.dirname(transcript)) if transcript else None
 
 
 def extract_last_reply(transcript_path):
@@ -69,8 +71,6 @@ def extract_last_reply(transcript_path):
 
 
 def run():
-    if not is_enabled():
-        return
     raw = sys.stdin.buffer.read()
     try:
         data = json.loads(raw) if raw.strip() else {}
@@ -80,6 +80,14 @@ def run():
     if data.get("terminationReason") not in (None, "", "NO_TOOL_CALL"):
         return
     if not data.get("fullyIdle", True):
+        return
+
+    session = session_id(data)
+    workspaces = data.get("workspacePaths") or []
+    project = workspaces[0] if workspaces else None
+
+    from speak import is_enabled
+    if not is_enabled(session=session, project=project, agent="antigravity"):
         return
 
     reply, already_spoke = extract_last_reply(data.get("transcriptPath", ""))
@@ -95,11 +103,8 @@ def run():
         return
 
     # Tagged with the conversation so parallel sessions take turns instead of cutting each other off
-    transcript = data.get("transcriptPath") or ""
-    session = data.get("conversationId") or ("agy:" + os.path.dirname(transcript) if transcript else None)
-    workspaces = data.get("workspacePaths") or []
-    source = {"session": session, "project": workspaces[0] if workspaces else None, "agent": "antigravity",
-              "label": os.path.basename(os.path.normpath(workspaces[0])) if workspaces else "Antigravity",
+    source = {"session": session, "project": project, "agent": "antigravity",
+              "label": os.path.basename(os.path.normpath(project)) if project else "Antigravity",
               "window": windows.session_window()}
     if not speak_server.request({"cmd": "speak", "text": text, **source}):
         speak_server.start_detached(text, source)

@@ -14,7 +14,17 @@ import contextlib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 SPEAK = re.compile(r"\s*/speak(?:\s+(.*))?\s*$", re.S)
-COMMANDS = {"on", "off", "status", "voices", "voice", "engine", "speed", "glow", "highlight", "idle", "model", "test"}
+COMMANDS = {"on", "off", "default", "toggle", "status", "voices", "voice", "engine", "speed", "glow", "highlight", "idle", "model", "test", "--session", "--project", "--agent", "--all"}
+
+
+def session_id(data):
+    if data.get("conversationId"):
+        return data["conversationId"]
+    transcript = data.get("transcriptPath") or ""
+    m = re.search(r"[/\\]brain[/\\]([0-9a-fA-F-]{36})[/\\]", transcript)
+    if m:
+        return m.group(1)
+    return ("agy:" + os.path.dirname(transcript)) if transcript else None
 
 
 def is_fresh_user_input(path):
@@ -37,17 +47,35 @@ def main():
     except Exception:
         print("{}")
         return
-    match = SPEAK.fullmatch(data.get("lastUserInput") or "")
-    args = (match.group(1) or "").split() if match else None
-    if args is None or (args and args[0].lower() not in COMMANDS) or not is_fresh_user_input(data.get("transcriptPath")):
+    user_input = data.get("lastUserInput") or ""
+    if not is_fresh_user_input(data.get("transcriptPath")):
         print("{}")
         return
     # speak_ctl reads the session and project from its environment
-    if data.get("conversationId"):
-        os.environ["ANTIGRAVITY_CONVERSATION_ID"] = data["conversationId"]
+    sid = session_id(data)
+    if sid:
+        os.environ["ANTIGRAVITY_CONVERSATION_ID"] = sid
     workspaces = data.get("workspacePaths") or []
     if workspaces and os.path.isdir(workspaces[0]):
         os.chdir(workspaces[0])
+
+    match = SPEAK.fullmatch(user_input)
+    args = (match.group(1) or "").split() if match else None
+    if args is None or (args and args[0].lower() not in COMMANDS):
+        # A task with a {speak off} tag: apply it, then let the task run as usual
+        if "speak" in user_input.lower():
+            import speak_ctl
+            inline = speak_ctl.inline_directive(user_input)
+        else:
+            inline = None
+        if inline:
+            with contextlib.redirect_stdout(io.StringIO()):
+                try:
+                    speak_ctl.main(inline)
+                except Exception:
+                    pass
+        print("{}")
+        return
     import speak_ctl
     out = io.StringIO()
     try:

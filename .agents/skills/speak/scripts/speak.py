@@ -86,10 +86,10 @@ def override_key(scope, value):
 
 
 def voices_for(state, session=None, project=None, agent=None):
-    """state with the voice overrides for a reply's agent, project and session applied, most specific last.
+    """state with the overrides for a reply's agent, project and session applied, most specific last.
 
-    Overrides hold the same keys as state (kokoro_voice, voice, edge_voice), so each one only
-    changes the engine it was set for.
+    Overrides hold the same keys as state (enabled, kokoro_voice, voice, edge_voice), so each scope
+    can override speech on/off or the voice for a specific engine.
     """
     overrides = state.get("voice_overrides", {})
     merged = dict(state)
@@ -97,6 +97,11 @@ def voices_for(state, session=None, project=None, agent=None):
         if value:
             merged.update(overrides.get(override_key(scope, value), {}))
     return merged
+
+
+def is_enabled(state=None, session=None, project=None, agent=None):
+    """True if speech is enabled for this session, project, and agent after applying overrides."""
+    return bool(voices_for(state or load_state(), session, project, agent).get("enabled"))
 
 
 def google_key():

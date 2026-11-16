@@ -23,8 +23,10 @@ Speak virtual environment:
 ```
 
 ### Subcommands
-- *(no args)*: toggle spoken replies on/off
-- `on` / `off`: enable or disable spoken replies (also starts / stops the background server)
+- *(no args)*: toggle spoken replies for this session
+- `on` / `off`: enable or disable spoken replies for this session only. Add `--project` for every session in the current folder, `--agent` for all Antigravity sessions, or `--all` for every session of every agent (this sets the default and clears all the narrower on/off settings).
+- `default [--project|--agent|--all]`: remove this session's on/off setting (or the project's / agent's) so it follows the broader one again; `default --all` removes all of them
+- A `{speak off}` or `{speak on}` tag inside a task prompt (optionally with a scope, e.g. `{speak off --agent}`) is applied by the prompt hook before you see the prompt. Ignore the tag and do the task; do not run `speak_ctl.py` for it.
 - `status`: on/off, server, engine, voice, speed, model, and Google characters used this month
 - `voices`: list the voices of the active engine (current one marked with `*`)
 - `voice <name>`: set the default voice by short or full name (typos tolerated: `lily`, `george`, `Charon`, `Wavenet-D`, `Andrew`)

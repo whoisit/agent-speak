@@ -46,7 +46,11 @@ switching from Chirp 3 HD to WaveNet at 900K characters, and to Kokoro at 3.8M W
 
 | Command | Effect |
 |---|---|
-| `/speak on` / `off` | Turn spoken replies on / off (also starts / stops the background server) |
+| `/speak on` / `off` | Turn spoken replies on / off for this session only (`/speak` alone toggles it) |
+| `/speak off --project` | Same for every session in this folder; `--agent`: all Claude Code (or all Antigravity) sessions. Most specific wins: session → project → agent → default |
+| `/speak on` / `off --all` | Every session of every agent: sets the default and clears the narrower on/off settings. Starts / stops the background server |
+| `/speak default` | Remove this session's on/off setting so it follows the default again (`--project` / `--agent` likewise; `--all` removes them all) |
+| `fix the build {speak off}` | A `{speak off}` / `{speak on}` tag in a task prompt mutes / unmutes that session, then the task runs as usual. A scope also works: `{speak off --agent}` |
 | `/speak status` | Server, engine, voice, speed, model, and Google characters used this month |
 | `/speak test` | Play a sample in the voice this session would use |
 | `/speak voices` | List the voices of the active engine (current one marked) |
