@@ -43,7 +43,9 @@ DEFAULT_STATE = {
     "voice": "en-US-Chirp3-HD-Charon",  # Google voice
     "fallback_voice": "en-US-Wavenet-D",  # used once the main voice's family is out of free characters
     "edge_voice": "en-US-AndrewNeural",
-    "glow_size": 27,  # how far the glow reaches outside the window, in pixels at 96 dpi
+    "glow_size": 100,  # how far the glow reaches from the window's edge, in pixels at 96 dpi
+    "glow_side": "inside",  # "inside": over the window's edge, fading inward; "outside": around the window
+    "glow_opacity": 50,  # percent, for the whole glow
     "glow_corner": "auto",  # window corner radius in pixels at 96 dpi; "auto": rounded on Windows 11 only
     "highlight": True,  # highlight the sentence being read in the session's terminal
     # Monthly character limits per Google voice family, kept under each free tier

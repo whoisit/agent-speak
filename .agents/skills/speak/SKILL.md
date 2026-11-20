@@ -38,7 +38,9 @@ Speak virtual environment:
 - `engine <kokoro|google|edge|piper>`: preferred engine
 - `speed <rate>`: speaking rate, `0.5`–`2.0` or a percentage like `120%`
 - `glow on` / `glow off`: glowing outline around the window that is speaking
-- `glow size <px>`: how far the glow reaches outside the window (default 27)
+- `glow inside` / `glow outside`: glow over the window's edge, fading inward (default), or around the window
+- `glow size <px>`: how far the glow reaches from the window's edge (default 100)
+- `glow opacity <1-100>`: opacity of the whole glow, in percent (default 50)
 - `glow corner <px|auto>`: corner radius of the window the glow follows (`auto`: rounded on Windows 11, square on Windows 10)
 - `highlight on` / `highlight off`: highlight the sentence being read inside the speaking session's terminal (Windows Terminal and the classic console)
 - `idle <minutes>`: unload the voice model after this long without speech (`0` = never)

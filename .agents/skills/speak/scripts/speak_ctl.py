@@ -1,7 +1,7 @@
 """Backend for the Claude Code and Antigravity /speak slash command.
 
 Usage: speak_ctl.py [on|off|default [--session|--project|--agent|--all]|status|voices|voice <name|default> [--session|--project|--agent]|
-       engine <google|kokoro|edge|piper>|speed <1.1>|glow <on|off|size <px>|corner <px|auto>>|highlight <on|off>|idle <minutes>|model <small|full>|test]
+       engine <google|kokoro|edge|piper>|speed <1.1>|glow <on|off|inside|outside|size <px>|opacity <1-100>|corner <px|auto>>|highlight <on|off>|idle <minutes>|model <small|full>|test]
 Plain on/off/default and no arguments (toggle) act on this session only; --all sets what every session inherits.
 """
 import os
@@ -174,7 +174,8 @@ def status(state):
         f"Speech is {enabled_str} | "
         f"server: {'running' if speak_server.request({'cmd': 'ping'}) else 'not running'} | engine: {state['engine']} | "
         f"voice: {voice} | local fallback: Kokoro {state['kokoro_voice']} ({state['kokoro_model']} model) | speed {state['speed']}x | "
-        f"glow {'on' if state.get('glow', True) else 'off'} ({state['glow_size']} px, corners {state['glow_corner']}) | "
+        f"glow {'on' if state.get('glow', True) else 'off'} ({state['glow_side']}, {state['glow_size']} px, "
+        f"{state['glow_opacity']}% opacity, corners {state['glow_corner']}) | "
         f"highlight {'on' if state['highlight'] else 'off'} | "
         f"{f'unloads after {idle} min idle' if idle else 'stays loaded'} | "
         f"Google free chars used {usage.get('month') or 'this month'}: {google}"
@@ -258,6 +259,10 @@ def main(args):
         state["glow"] = arg == "on"
     elif cmd == "glow" and re.fullmatch(r"size \d+", arg):
         state["glow_size"] = min(max(int(arg.split()[1]), 1), 100)
+    elif cmd == "glow" and arg in ("inside", "outside"):
+        state["glow_side"] = arg
+    elif cmd == "glow" and re.fullmatch(r"opacity \d+%?", arg):
+        state["glow_opacity"] = min(max(int(arg.split()[1].rstrip("%")), 1), 100)
     elif cmd == "glow" and re.fullmatch(r"corner (\d+|auto)", arg):
         value = arg.split()[1]
         state["glow_corner"] = value if value == "auto" else min(int(value), 50)
@@ -283,7 +288,7 @@ def main(args):
         if not speak_server.request({"cmd": "speak", "text": "This is how I sound.", **source}):
             speak_server.start_detached("This is how I sound.", source)
     elif cmd != "status":
-        print("Usage: /speak [on|off|default [--session|--project|--agent|--all]|status|voices|voice <name|default> [--session|--project|--agent]|engine <google|kokoro|edge|piper>|speed <1.1>|glow <on|off|size <px>|corner <px|auto>>|highlight <on|off>|idle <minutes>|model <small|full>|test]")
+        print("Usage: /speak [on|off|default [--session|--project|--agent|--all]|status|voices|voice <name|default> [--session|--project|--agent]|engine <google|kokoro|edge|piper>|speed <1.1>|glow <on|off|inside|outside|size <px>|opacity <1-100>|corner <px|auto>>|highlight <on|off>|idle <minutes>|model <small|full>|test]")
         return
 
     save_state(state)

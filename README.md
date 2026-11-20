@@ -60,7 +60,9 @@ switching from Chirp 3 HD to WaveNet at 900K characters, and to Kokoro at 3.8M W
 | `/speak speed 1.1` | Speaking rate for every engine (`110%` also works, range 0.5–2.0) |
 | `/speak model small\|full` | Kokoro model size: small (int8, ~200 MB RAM) or full (~400 MB RAM, about 20% faster) |
 | `/speak glow on\|off` | Glowing outline around the window that is speaking (also in the tray panel) |
-| `/speak glow size 27` | How far the glow reaches outside the window, in pixels (1–100) |
+| `/speak glow inside\|outside` | Glow over the window's edge, fading inward (default), or around the window |
+| `/speak glow size 100` | How far the glow reaches from the window's edge, in pixels (1–100) |
+| `/speak glow opacity 50` | Opacity of the whole glow, in percent (1–100) |
 | `/speak glow corner 8\|auto` | Corner radius of the window the glow hugs; `auto` is rounded on Windows 11, square on Windows 10. The glow's outer corners are always rounded |
 | `/speak highlight on\|off` | Highlight the sentence being read, in place, in the session's terminal (Windows Terminal and the classic console; see below) |
 | `/speak idle 20` | Unload the voice model after this many minutes without speech (`0` = keep it loaded) |
