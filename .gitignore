@@ -34,3 +34,4 @@ Thumbs.db
 .agents/skills/speak/state.json
 .agents/skills/speak/speak.pid
 .agents/skills/speak/server.log
+.agents/skills/speak/agy_sessions.json

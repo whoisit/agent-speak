@@ -8,6 +8,7 @@ import asyncio
 import subprocess
 import tempfile
 import argparse
+import functools
 import threading
 import time
 import urllib.request
@@ -111,9 +112,87 @@ def antigravity_session(data):
     return ("agy:" + os.path.dirname(transcript)) if transcript else None
 
 
+AGY_SESSIONS_FILE = os.path.join(SKILL_DIR, "agy_sessions.json")
+
+
+def remember_antigravity_session(session):
+    """Note which conversation the agy process above this (prompt hook) process is running.
+
+    agy doesn't pass the conversation ID to the commands its model runs, so a speak_ctl run from
+    there looks it up by its agy ancestor (antigravity_session_here)."""
+    import windows
+    agent, pid = windows.agent_process()
+    if agent != "antigravity" or not session:
+        return
+    try:
+        with open(AGY_SESSIONS_FILE, "r", encoding="utf-8") as f:
+            sessions = json.load(f)
+    except Exception:
+        sessions = {}
+    if sessions.get(str(pid)) == session:
+        return
+    alive = windows.running_pids()
+    sessions = {k: v for k, v in sessions.items() if k.isdigit() and int(k) in alive}
+    sessions[str(pid)] = session
+    try:
+        with open(AGY_SESSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(sessions, f)
+    except Exception:
+        pass
+
+
+def antigravity_session_here():
+    """Conversation of the agy process above this one, as noted by its prompt hook, or None."""
+    import windows
+    agent, pid = windows.agent_process()
+    if agent != "antigravity":
+        return None
+    try:
+        with open(AGY_SESSIONS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f).get(str(pid))
+    except Exception:
+        return None
+
+
+def agy_print_mode(args):
+    """True if agy arguments (without the program) run it headless: -p, --print or --prompt, also
+    written -print or --print=... (Go-style flags). --print-timeout is another flag."""
+    for arg in args:
+        if arg == "--":
+            break
+        if arg.startswith("-") and arg.lstrip("-").split("=", 1)[0] in ("p", "print", "prompt"):
+            return True
+    return False
+
+
+@functools.lru_cache(maxsize=None)
+def unattended(agent=None):
+    """True for a run nobody is attending (agy -p, claude -p, SDK runs): never spoken, and it can't
+    change speech settings. agent ("claude" / "antigravity") if the caller knows it, else found here.
+
+    SPEAK_UNATTENDED=1 marks any agent's run as unattended. Anything unknown counts as attended."""
+    if os.environ.get("SPEAK_UNATTENDED") == "1":
+        return True
+    try:
+        import windows
+        if agent is None:
+            agent = windows.agent_process()[0] or ("claude" if os.environ.get("CLAUDECODE") else None)
+        if agent == "claude":  # Claude Code sets this in every child process: 1 interactive, 0 for -p
+            return os.environ.get("CLAUDE_CODE_SESSION_ATTENDED") == "0"
+        if agent == "antigravity":
+            found, pid = windows.agent_process()
+            return found == "antigravity" and agy_print_mode((windows.process_argv(pid) or [])[1:])
+    except Exception:
+        pass
+    return False
+
+
 def is_enabled(state=None, session=None, project=None, agent=None):
-    """True if speech is enabled for this session, project, and agent after applying overrides."""
-    return bool(voices_for(state or load_state(), session, project, agent).get("enabled"))
+    """True if speech is enabled for this session, project, and agent after applying overrides,
+    and someone is attending the run."""
+    if not voices_for(state or load_state(), session, project, agent).get("enabled"):
+        return False
+    return not unattended(agent)
 
 
 def google_key():
@@ -489,6 +568,9 @@ if __name__ == "__main__":
     parser.add_argument("--engine", choices=["google", "kokoro", "edge", "piper"], help="Override the engine from state.json")
     parser.add_argument("--voice", type=str, help="Google (…Chirp3-HD-…), Kokoro (am_michael) or Edge (…Neural) voice name")
     args = parser.parse_args()
+    if unattended():
+        print("Speech is off in headless runs.")
+        sys.exit(0)
 
     success = speak(args.text, args.model, args.engine, args.voice)
     sys.exit(0 if success else 1)

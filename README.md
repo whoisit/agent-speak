@@ -50,7 +50,6 @@ switching from Chirp 3 HD to WaveNet at 900K characters, and to Kokoro at 3.8M W
 | `/speak off --project` | Same for every session in this folder; `--agent`: all Claude Code (or all Antigravity) sessions. Most specific wins: session → project → agent → default |
 | `/speak on` / `off --all` | Every session of every agent: sets the default and clears the narrower on/off settings. Starts / stops the background server |
 | `/speak default` | Remove this session's on/off setting so it follows the default again (`--project` / `--agent` likewise; `--all` removes them all) |
-| `fix the build {speak off}` | A `{speak off}` / `{speak on}` tag in a task prompt mutes / unmutes that session, then the task runs as usual. A scope also works: `{speak off --agent}` |
 | `/speak status` | Server, engine, voice, speed, model, and Google characters used this month |
 | `/speak test` | Play a sample in the voice this session would use |
 | `/speak voices` | List the voices of the active engine (current one marked) |
@@ -65,6 +64,11 @@ switching from Chirp 3 HD to WaveNet at 900K characters, and to Kokoro at 3.8M W
 | `/speak glow corner 8\|auto` | Corner radius of the window the glow hugs; `auto` is rounded on Windows 11, square on Windows 10. The glow's outer corners are always rounded |
 | `/speak highlight on\|off` | Highlight the sentence being read, in place, in the session's terminal (Windows Terminal and the classic console; see below) |
 | `/speak idle 20` | Unload the voice model after this many minutes without speech (`0` = keep it loaded) |
+
+Only your own interactive sessions speak. Headless runs (`agy -p` / `--print` / `--prompt`, `claude -p`,
+SDK runs started by scripts and skills) and subagents are always silent and can't change these settings, so
+tools that call an agent in the background need to know nothing about Speak. To silence some other kind of
+run, start it with the environment variable `SPEAK_UNATTENDED=1`.
 
 ## Tray panel
 

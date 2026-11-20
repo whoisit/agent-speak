@@ -7,14 +7,26 @@ their own visible window; anything else falls back to the nearest ancestor with 
 """
 import os
 import ctypes
+import functools
 from ctypes import wintypes as w
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 dwmapi = ctypes.WinDLL("dwmapi")
+ntdll = ctypes.WinDLL("ntdll")
+shell32 = ctypes.WinDLL("shell32")
 user32.GetWindow.restype = w.HWND
 user32.GetForegroundWindow.restype = w.HWND
 kernel32.GetConsoleWindow.restype = w.HWND
+kernel32.OpenProcess.restype = w.HANDLE
+kernel32.OpenProcess.argtypes = (w.DWORD, w.BOOL, w.DWORD)
+kernel32.CloseHandle.argtypes = (w.HANDLE,)
+kernel32.LocalFree.restype = ctypes.c_void_p
+kernel32.LocalFree.argtypes = (ctypes.c_void_p,)
+ntdll.NtQueryInformationProcess.restype = ctypes.c_long
+ntdll.NtQueryInformationProcess.argtypes = (w.HANDLE, ctypes.c_int, ctypes.c_void_p, w.ULONG, ctypes.POINTER(w.ULONG))
+shell32.CommandLineToArgvW.restype = ctypes.POINTER(w.LPWSTR)
+shell32.CommandLineToArgvW.argtypes = (w.LPCWSTR, ctypes.POINTER(ctypes.c_int))
 
 GW_OWNER = 4
 DWMWA_EXTENDED_FRAME_BOUNDS, DWMWA_CLOAKED = 9, 14
@@ -27,17 +39,87 @@ class _Process(ctypes.Structure):
                 ("pcPriClassBase", ctypes.c_long), ("dwFlags", w.DWORD), ("szExeFile", ctypes.c_char * 260)]
 
 
-def _parents():
-    """{pid: parent pid} for every running process."""
+def _processes():
+    """{pid: (parent pid, exe name)} for every running process."""
     snap = kernel32.CreateToolhelp32Snapshot(2, 0)  # TH32CS_SNAPPROCESS
-    entry, parents = _Process(), {}
+    entry, procs = _Process(), {}
     entry.dwSize = ctypes.sizeof(_Process)
     ok = kernel32.Process32First(snap, ctypes.byref(entry))
     while ok:
-        parents[entry.th32ProcessID] = entry.th32ParentProcessID
+        procs[entry.th32ProcessID] = (entry.th32ParentProcessID, entry.szExeFile.decode("mbcs", "ignore"))
         ok = kernel32.Process32Next(snap, ctypes.byref(entry))
     kernel32.CloseHandle(snap)
-    return parents
+    return procs
+
+
+def _parents():
+    """{pid: parent pid} for every running process."""
+    return {pid: parent for pid, (parent, _) in _processes().items()}
+
+
+AGENT_EXES = {"claude.exe": "claude", "agy.exe": "antigravity", "antigravity.exe": "antigravity"}
+
+
+@functools.lru_cache(maxsize=1)  # a hook's ancestors don't change while it runs
+def agent_process():
+    """(agent, pid) of the nearest agent process above this one, e.g. ("antigravity", 1234).
+
+    The process tree, unlike inherited environment variables, can't be fooled by an agy started
+    from a Claude Code terminal. (None, None) if no known agent is found (e.g. Claude Code via node)."""
+    try:
+        procs, seen = _processes(), set()
+        pid = procs.get(os.getpid(), (None, ""))[0]
+        while pid and pid not in seen:
+            seen.add(pid)
+            parent, name = procs.get(pid, (None, ""))
+            if name.lower() in AGENT_EXES:
+                return AGENT_EXES[name.lower()], pid
+            pid = parent
+    except Exception:
+        pass
+    return None, None
+
+
+class _UnicodeString(ctypes.Structure):
+    _fields_ = [("Length", w.USHORT), ("MaximumLength", w.USHORT), ("Buffer", ctypes.c_void_p)]
+
+
+def process_argv(pid):
+    """Command-line arguments of another process (program first), or None if they can't be read.
+
+    Toolhelp snapshots don't carry command lines; ProcessCommandLineInformation (60) does."""
+    handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return None
+    try:
+        size = w.ULONG()
+        ntdll.NtQueryInformationProcess(handle, 60, None, 0, ctypes.byref(size))  # asks for the size
+        if not size.value:
+            return None
+        buf = ctypes.create_string_buffer(size.value)
+        if ntdll.NtQueryInformationProcess(handle, 60, buf, size, ctypes.byref(size)) != 0:
+            return None
+        text = _UnicodeString.from_buffer(buf)
+        if not text.Buffer or not text.Length:
+            return None
+        line = ctypes.wstring_at(text.Buffer, text.Length // 2)
+    finally:
+        kernel32.CloseHandle(handle)
+    argc = ctypes.c_int()
+    argv = shell32.CommandLineToArgvW(line, ctypes.byref(argc))
+    if not argv:
+        return None
+    try:
+        return [argv[i] for i in range(argc.value)]
+    finally:
+        kernel32.LocalFree(argv)
+
+
+def running_pids():
+    try:
+        return set(_processes())
+    except Exception:
+        return set()
 
 
 def _ancestors():

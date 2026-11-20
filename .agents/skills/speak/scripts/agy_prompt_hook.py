@@ -13,7 +13,7 @@ import contextlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-SPEAK = re.compile(r"\s*/speak(?:\s+(.*))?\s*$", re.S)
+SPEAK = re.compile(r"\s*/speak(?:\s+(.*))?\s*$", re.S | re.I)
 COMMANDS = {"on", "off", "default", "toggle", "status", "voices", "voice", "engine", "speed", "glow", "highlight", "idle", "model", "test", "--session", "--project", "--agent", "--all"}
 
 
@@ -24,11 +24,15 @@ def is_fresh_user_input(path):
     try:
         with open(path, "rb") as f:
             f.seek(0, os.SEEK_END)
-            f.seek(max(0, f.tell() - 32768))
-            lines = f.read().splitlines()
+            size = f.tell()
+            for chunk in (32768, size):  # the whole file only if the last line is longer than the tail
+                f.seek(max(0, size - chunk))
+                lines = f.read().splitlines()
+                if len(lines) > 1 or chunk >= size:
+                    break
         return bool(lines and json.loads(lines[-1]).get("type") == "USER_INPUT")
     except Exception:
-        return True
+        return False  # unreadable: not a fresh prompt (a subagent's step must not pass as one)
 
 
 def main():
@@ -41,9 +45,14 @@ def main():
     if not is_fresh_user_input(data.get("transcriptPath")):
         print("{}")
         return
-    # speak_ctl reads the session and project from its environment
-    from speak import antigravity_session
+    # speak_ctl reads the session and project from its environment. agy started from a Claude Code
+    # terminal inherits CLAUDECODE, which would make speak_ctl act for Claude instead.
+    os.environ.pop("CLAUDECODE", None)
+    os.environ.pop("CLAUDE_CODE_SESSION_ID", None)
+    from speak import antigravity_session, remember_antigravity_session, unattended
     sid = antigravity_session(data)
+    if not unattended("antigravity"):  # headless runs write no state; speak_ctl refuses them itself
+        remember_antigravity_session(sid)  # for speak_ctl runs by this conversation's model
     if sid:
         os.environ["ANTIGRAVITY_CONVERSATION_ID"] = sid
     workspaces = data.get("workspacePaths") or []
@@ -53,18 +62,6 @@ def main():
     match = SPEAK.fullmatch(user_input)
     args = (match.group(1) or "").split() if match else None
     if args is None or (args and args[0].lower() not in COMMANDS):
-        # A task with a {speak off} tag: apply it, then let the task run as usual
-        if "speak" in user_input.lower():
-            import speak_ctl
-            inline = speak_ctl.inline_directive(user_input)
-        else:
-            inline = None
-        if inline:
-            with contextlib.redirect_stdout(io.StringIO()):
-                try:
-                    speak_ctl.main(inline)
-                except Exception:
-                    pass
         print("{}")
         return
     import speak_ctl

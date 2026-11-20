@@ -17,14 +17,6 @@ import speak_server
 SCOPES = ("--session", "--project", "--agent", "--all")
 AGENTS = {"antigravity": "antigravity", "agy": "antigravity", "claude": "claude"}
 MAX_SESSION_OVERRIDES = 50  # session overrides outlive their sessions; keep only the newest
-# {speak off} / {speak on --project} tag inside a task prompt: braces only, so prose about /speak never matches
-INLINE = re.compile(r"\{\s*/?speak\s+(on|off)(?:\s+(--(?:session|project|agent|all)))?\s*\}", re.I)
-
-
-def inline_directive(prompt):
-    """speak_ctl args for a {speak on|off [--scope]} tag in a task prompt (default: this session), else None."""
-    match = INLINE.search(prompt or "")
-    return [match.group(1).lower(), (match.group(2) or "--session").lower()] if match else None
 
 
 def clear_enabled_overrides(state):
@@ -36,14 +28,27 @@ def clear_enabled_overrides(state):
             del overrides[name]
 
 
+_agent = []
+
+
 def this_agent():
-    return "claude" if os.environ.get("CLAUDECODE") else "antigravity"
+    """The agent running this command: the nearest agent process above us, else the environment.
+
+    The environment alone misleads: agy started from a Claude Code terminal inherits CLAUDECODE."""
+    if not _agent:
+        import windows
+        _agent.append(windows.agent_process()[0] or ("claude" if os.environ.get("CLAUDECODE") else "antigravity"))
+    return _agent[0]
 
 
 def scope_target(scope, explicit_agent=None):
     """(scope, value) for the session, project or agent running this command; value is None if unknown."""
     if scope == "session":
-        return scope, os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
+        # Only this agent's own ID: agy started from a Claude Code terminal inherits Claude's session ID
+        if this_agent() == "claude":
+            return scope, os.environ.get("CLAUDE_CODE_SESSION_ID")
+        from speak import antigravity_session_here
+        return scope, os.environ.get("ANTIGRAVITY_CONVERSATION_ID") or antigravity_session_here()
     if scope == "project":
         return scope, os.getcwd()
     return scope, explicit_agent or this_agent()
@@ -177,6 +182,10 @@ def status(state):
 
 
 def main(args):
+    from speak import unattended
+    if unattended(this_agent()):  # a headless run's model must not change the user's settings
+        print("Speech is off in headless runs; settings unchanged.")
+        return
     state = load_state()
     scope = next((a[2:].lower() for a in args if a.lower() in SCOPES), None)
     args = [a for a in args if a.lower() not in SCOPES]
