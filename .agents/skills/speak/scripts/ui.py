@@ -231,18 +231,15 @@ class Reader:
         text.tag_configure("done", foreground=DIM_FG)
         text.tag_configure("current", background=CURRENT_BG, foreground="#ffffff")
 
-        # Character span of each chunk in the displayed text
-        self.spans, offset = [], 0
-        for p, para in enumerate(reply.paragraphs):
-            cursor = 0
-            for chunk_para, chunk in reply.chunks:
-                if chunk_para != p:
-                    continue
-                at = para.find(chunk, cursor)
-                self.spans.append((offset + at, offset + at + len(chunk)) if at >= 0 else None)
-                cursor = at + len(chunk) if at >= 0 else cursor
-            offset += len(para) + 2
-        text.insert("1.0", "\n\n".join(reply.paragraphs))
+        # Character span of each chunk in the displayed text, where its lines (paragraphs) are a blank line apart
+        shown = "\n\n".join(reply.paragraphs)
+        self.spans, cursor = [], 0
+        for _, chunk, _ in reply.chunks:
+            chunk = chunk.replace("\n", "\n\n")
+            at = shown.find(chunk, cursor)
+            self.spans.append((at, at + len(chunk)) if at >= 0 else None)
+            cursor = at + len(chunk) if at >= 0 else cursor
+        text.insert("1.0", shown)
         text.configure(state="disabled")
         self.shown = None
         win.lift()

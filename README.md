@@ -96,8 +96,9 @@ in a window that highlights each sentence as it is spoken. Right-click for the s
   spoken has lost its markdown, so the match allows for missing and extra words), and soft blue boxes
   are drawn over it. Only text that is on screen can be highlighted, and only in terminals that expose
   their text this way: Windows Terminal and the classic console do; Antigravity's terminal doesn't yet.
-- Text is synthesized in sentence chunks, a short first one so playback starts quickly and the rest while
-  it plays, falling back engine by engine:
+- Text is synthesized in chunks while it plays: one sentence first so playback starts quickly, then
+  chunks that grow to a few short paragraphs (each synthesis call gets its own intonation, so fewer
+  joins sound more natural), with a pause after each one that fits the break. Engines fall back one by one:
   - `kokoro`: **Kokoro** → **Piper**
   - `google`: **Chirp 3 HD** → **WaveNet** → Kokoro → Piper
   - `edge`: **Edge Read Aloud** (free, unofficial, sometimes flaky) → Kokoro → Piper

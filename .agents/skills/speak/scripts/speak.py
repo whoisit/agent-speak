@@ -29,7 +29,10 @@ ENV_FILE = os.path.join(WORKSPACE_DIR, ".env")
 
 GOOGLE_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize"
 NO_WINDOW = subprocess.CREATE_NO_WINDOW
-CHUNK_CHARS = 250  # first chunk is synthesized alone so playback starts quickly
+CHUNK_CHARS = 400  # Kokoro reads at most 510 phonemes, about 430 characters, in one pass
+CHUNK_GROWTH = 2   # a chunk is at most twice as long as the one before, so it's ready before that one ends
+MIN_GROWN = 100    # ...but may always be this long, so a short opening doesn't hold the rest back
+PAUSES = {"clause": 0.1, "sentence": 0.25, "paragraph": 0.5}  # seconds of silence after a chunk, at speed 1
 
 DEFAULT_STATE = {
     "enabled": False,
@@ -382,26 +385,72 @@ def play(path, stop_event=None):
         mci(f"close {alias}", None, 0, None)
 
 
-def split_chunks(text, size=CHUNK_CHARS):
-    """Split into sentence-aligned chunks of roughly `size` characters.
+def paragraphs(text):
+    """The text's paragraphs (separated by blank lines), each on one line, leaving out ones with
+    nothing to say, like "---" or a lone emoji (they would fail to synthesize)."""
+    paras = (" ".join(p.split()) for p in re.split(r"\n\s*\n", text.strip()))
+    return [p for p in paras if re.search(r"\w", p)]
 
-    The first sentence is its own chunk so playback starts as early as possible.
+
+def split_chunks(paras, size=CHUNK_CHARS):
+    """Split paragraphs into chunks to synthesize one at a time: [(first paragraph index, text, pause)].
+
+    Every synthesis call gets its own intonation, falling at its end, so each join resets the
+    voice: the fewer joins the better. The first chunk is one sentence (or clause), so playback
+    starts in about a second. Synthesis runs ~2.6x faster than playback, so each later chunk can be
+    CHUNK_GROWTH times longer than the one before and still be ready in time, up to `size`.
+
+    Short paragraphs and bullets share a chunk, one per line of its text. A chunk ends inside a
+    paragraph only if it began in it, so skipping a paragraph can always move to a chunk boundary.
+    `pause` is the silence (seconds at speed 1) to play after the chunk, by what kind of break follows.
     """
-    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences = [(p, s) for p, para in enumerate(paras)
+                 for s in re.split(r"(?<=[.!?])\s+", para) if re.search(r"\w", s)]
+    if not sentences:
+        return []
     # A long first sentence is split at its first comma past 15 chars, so the opening chunk stays short
-    first = re.match(r"(.{15,100}?,)\s+(.+)", sentences[0]) if len(sentences[0]) > 100 else None
+    p0, s0 = sentences[0]
+    first = re.match(r"(.{15,100}?,)\s+(.+)", s0) if len(s0) > 100 else None
     if first:
-        sentences[:1] = [first.group(1), first.group(2)]
-    chunks, current = sentences[:1], ""
-    for s in sentences[1:]:
-        if current and len(current) + len(s) + 1 > size:
-            chunks.append(current)
-            current = s
+        sentences[:1] = [(p0, first.group(1)), (p0, first.group(2))]
+
+    chunks, start, text, limit = [], None, "", 0  # limit 0: the first sentence goes alone
+    for p, s in sentences:
+        last = start + text.count("\n") if text else None  # paragraph the chunk so far ends in
+        # A new paragraph joins the chunk only if all of it fits; within one, sentence by sentence
+        added = len(paras[p]) if p != last else len(s)
+        if text and len(text) + 1 + added > limit:
+            chunks.append((start, text))
+            limit = min(size, max(MIN_GROWN, CHUNK_GROWTH * len(text)))
+            text = ""
+        if not text:
+            start, text = p, s
         else:
-            current = f"{current} {s}".strip()
-    if current:
-        chunks.append(current)
-    return [c for c in chunks if re.search(r"\w", c)]  # a chunk like "---" or a lone emoji would fail to synthesize
+            text += ("\n" if p != last else " ") + s
+    chunks.append((start, text))
+
+    result = []
+    for i, (p, text) in enumerate(chunks):
+        ends_para = i + 1 == len(chunks) or chunks[i + 1][0] != p + text.count("\n")
+        kind = "paragraph" if ends_para else "clause" if text.endswith(",") else "sentence"
+        result.append((p, text, PAUSES[kind]))
+    return result
+
+
+def next_paragraph(chunks, i):
+    """Index of the first chunk after chunk i that starts a paragraph (len(chunks) if none)."""
+    last = chunks[i][0] + chunks[i][1].count("\n")  # paragraph chunk i ends in
+    i += 1
+    while i < len(chunks) and chunks[i][0] == last:  # carries on the paragraph chunk i ended inside
+        i += 1
+    return i
+
+
+def speakable(chunk):
+    """A chunk's text as one line for the engine. A paragraph or bullet with no closing punctuation
+    gets a full stop, or it would run straight into the next one with no pause."""
+    return " ".join(line if re.search(r"[.!?:;,]$", line) else line + "."
+                    for line in chunk.split("\n"))
 
 
 class Synthesizer:
@@ -484,7 +533,7 @@ def speak_text(text, voice_model=VOICE_MODEL, engine=None, voice=None, stop_even
     synth = Synthesizer(state, engine or state["engine"], voice, voice_model)
     stop_event = stop_event or threading.Event()
     tmp_dir = tempfile.mkdtemp(prefix="speak_")
-    chunks = split_chunks(text)
+    chunks = [speakable(chunk) for _, chunk, _ in split_chunks(paragraphs(text))]
     results = [None] * len(chunks)
     ready = [threading.Event() for _ in chunks]
 

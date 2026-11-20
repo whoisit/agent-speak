@@ -5,8 +5,9 @@ when the sentence changes. The UI's Tk thread draws soft blue boxes behind it, o
 overlay (overlay.py) kept just above the window. Positions are kept relative to the window, so the
 boxes follow it smoothly when it moves. Scrolling is picked up on the next lookup.
 
-Chunks can hold a few sentences. Which one is being heard is estimated from how much of the chunk's
-audio has played, taking each sentence's share of the characters as its share of the time.
+Chunks can hold a few sentences, and short paragraphs or bullets, one per line. Which sentence is
+being heard is estimated from how much of the chunk's audio has played, taking each sentence's
+share of the characters as its share of the time.
 """
 import re
 import threading
@@ -31,7 +32,7 @@ SETTINGS_EVERY = 1.0
 
 def sentence_at(chunk, progress):
     """(first, last) word indexes, into words(chunk), of the sentence heard `progress` (0..1) of the way through."""
-    sentences = [s for s in re.split(r"(?<=[.!?])\s+", chunk) if words(s)]
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+|\n", chunk) if words(s)]
     total = sum(len(s) for s in sentences) or 1
     first, heard = 0, 0
     for s in sentences:

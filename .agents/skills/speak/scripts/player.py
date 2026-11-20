@@ -1,10 +1,10 @@
 """Queued speech player for the background server: pause/resume, skip, and a live output level.
 
-Each reply is split into paragraphs and chunks. A producer thread synthesizes a few chunks ahead
-of playback; audio goes through one sounddevice stream so pausing keeps the exact position.
+Each reply is split into chunks (speak.split_chunks) that grow from one sentence to a few short
+paragraphs. A producer thread synthesizes a few chunks ahead of playback; audio goes through one
+sounddevice stream so pausing keeps the exact position.
 """
 import os
-import re
 import shutil
 import tempfile
 import threading
@@ -42,10 +42,9 @@ class Reply:
         self.window = source.get("window")     # handle of the session's window, for the glow
         self.engine = source.get("engine")     # speak.py --engine / --voice; None = from state
         self.voice = source.get("voice")
-        # (paragraph index, chunk text) pairs; paragraphs are separated by blank lines
-        self.paragraphs = re.split(r"\n\s*\n", text.strip())
-        self.chunks = [(p, chunk) for p, para in enumerate(self.paragraphs)
-                       for chunk in speak.split_chunks(para) if chunk.strip()]
+        self.paragraphs = speak.paragraphs(text)
+        # (first paragraph index, text with one line per paragraph, pause after) per chunk
+        self.chunks = speak.split_chunks(self.paragraphs)
         self.audio = [None] * len(self.chunks)
         self.ready = [threading.Event() for _ in self.chunks]
         self.index = 0             # chunk being played
@@ -229,9 +228,7 @@ class Player:
                 self._play_buffer(audio)
             if reply.skip_paragraph:
                 reply.skip_paragraph = False
-                para = reply.chunks[i][0]
-                while i < len(reply.chunks) and reply.chunks[i][0] == para:
-                    i += 1
+                i = speak.next_paragraph(reply.chunks, i)
             else:
                 i += 1
 
@@ -265,14 +262,17 @@ class Player:
                     i = max(i, reply.index)  # skipped chunks are never synthesized
                     if reply.cancelled or i >= len(reply.chunks):
                         return
-                synth.state["speed"] = speak.load_state()["speed"]  # speed changes apply from the next chunk
+                speed = synth.state["speed"] = speak.load_state()["speed"]  # changes apply from the next chunk
+                _, text, pause = reply.chunks[i]
                 try:
-                    out = synth.synth(reply.chunks[i][1], lambda: chunk_path(i), in_memory=True)
+                    out = synth.synth(speak.speakable(text), lambda: chunk_path(i), in_memory=True)
                     if isinstance(out, str):
                         reply.audio[i] = load_audio(out)
                         os.remove(out)
                     else:
-                        reply.audio[i] = out
+                        # Kokoro trims the silence off its audio: put back a pause that fits the break
+                        silence = np.zeros(int(pause / speed * RATE), dtype=np.float32)
+                        reply.audio[i] = np.concatenate([out, silence])
                 except Exception as e:
                     reply.audio[i] = e
                 reply.ready[i].set()
